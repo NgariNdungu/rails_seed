@@ -16,13 +16,13 @@ namespace :provision do
   desc 'create swap'
   task :swap do
     on roles (:all) do
+      system_details = capture(%(sudo lshw -class memory))
+      puts "################# SYSTEM DETAILS #################"
+      puts system_details
       if !test("[ -e /swapfile ]")
-        system_details = capture(%(sudo lshw -class memory))
-        puts "################# SYSTEM DETAILS #################"
-        puts system_details
         set :swap_size, ask("size of swap space in GB(1,2,4)", 1)
 
-        execute :sudo, "fallocate -l \#{fetch(:swap_size,1)}G /swapfile", report_on_exception: false
+        execute :sudo, "fallocate -l \#{fetch(:swap_size,1)}G /swapfile"
         execute :sudo, 'chmod 600 /swapfile'
         execute :sudo, 'mkswap /swapfile'
         execute :sudo, 'swapon /swapfile'
@@ -32,6 +32,8 @@ namespace :provision do
         execute :sudo, 'sysctl vm.vfs_cache_pressure=50'
         execute :sudo, %{sh -c 'echo "vm.vfs_cache_pressure = 50" >> /etc/sysctl.conf'}
         info "\#{fetch(:swap_size,1)}G Swap Installed"
+      else
+        info "Swapfile already created."
       end
     end
   end
