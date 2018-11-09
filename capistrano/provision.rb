@@ -16,21 +16,23 @@ namespace :provision do
   desc 'create swap'
   task :swap do
     on roles (:all) do
-      system_details = capture(%(sudo lshw -class memory))
-      puts "################# SYSTEM DETAILS #################"
-      puts system_details
-      set :swap_size, ask("size of swap space in GB(1,2,4)", 1)
+      if !test("[ -e /swapfile ]")
+        system_details = capture(%(sudo lshw -class memory))
+        puts "################# SYSTEM DETAILS #################"
+        puts system_details
+        set :swap_size, ask("size of swap space in GB(1,2,4)", 1)
 
-      execute :sudo, "fallocate -l \#{fetch(:swap_size,1)}G /swapfile"
-      execute :sudo, 'chmod 600 /swapfile'
-      execute :sudo, 'mkswap /swapfile'
-      execute :sudo, 'swapon /swapfile'
-      execute :sudo, %{sh -c 'echo "/swapfile   none    swap    sw    0   0" >> /etc/fstab'}
-      execute :sudo, 'sysctl vm.swappiness=10'
-      execute :sudo, %{sh -c 'echo "vm.swappiness=10" >> /etc/sysctl.conf'}
-      execute :sudo, 'sysctl vm.vfs_cache_pressure=50'
-      execute :sudo, %{sh -c 'echo "vm.vfs_cache_pressure = 50" >> /etc/sysctl.conf'}
-      info "\#{fetch(:swap_size,1)}G Swap Installed"
+        execute :sudo, "fallocate -l \#{fetch(:swap_size,1)}G /swapfile", report_on_exception: false
+        execute :sudo, 'chmod 600 /swapfile'
+        execute :sudo, 'mkswap /swapfile'
+        execute :sudo, 'swapon /swapfile'
+        execute :sudo, %{sh -c 'echo "/swapfile   none    swap    sw    0   0" >> /etc/fstab'}
+        execute :sudo, 'sysctl vm.swappiness=10'
+        execute :sudo, %{sh -c 'echo "vm.swappiness=10" >> /etc/sysctl.conf'}
+        execute :sudo, 'sysctl vm.vfs_cache_pressure=50'
+        execute :sudo, %{sh -c 'echo "vm.vfs_cache_pressure = 50" >> /etc/sysctl.conf'}
+        info "\#{fetch(:swap_size,1)}G Swap Installed"
+      end
     end
   end
 
@@ -38,9 +40,13 @@ namespace :provision do
   task :update_system do
     on roles(:all), in: :groups, limit: 3, wait: 10 do
       execute :sudo, 'apt-get -y update'
-      execute :sudo, 'apt-get -y install python-software-properties build-essential zlib1g zlib1g-dev libssl-dev libreadline6 libreadline6-dev openssh-server libyaml-dev libcurl4-openssl-dev libxslt-dev libxml2-dev openssl curl autoconf libc6-dev ncurses-dev automake libtool bison'
-      execute %( echo "
-" | ssh-keygen -t rsa -N "" -f ~/.ssh/id_rsa) # for repo
+      execute :sudo, 'apt-get -y install software-properties-common build-essential zlib1g zlib1g-dev libssl-dev libreadline7 libreadline-dev openssh-server libyaml-dev libcurl4-openssl-dev libxslt-dev libxml2-dev openssl curl autoconf libc6-dev ncurses-dev automake libtool bison'
+      if test("[ -e ~/.ssh/id_rsa ]")
+        info "SSH key exists. Skipping..."
+      else
+        execute %( echo "
+  " | ssh-keygen -t rsa -N "" -f ~/.ssh/id_rsa) # for repo
+      end
       info 'System updated'
     end
   end
@@ -50,7 +56,7 @@ namespace :provision do
     on roles(:all), in: :groups, limit: 3, wait: 10 do
       execute :sudo, 'apt-get -y install curl wget vim less htop dialog'
       execute :sudo, 'apt-get -y install imagemagick libmagickwand-dev'
-      execute :sudo, 'apt-get -y install upstart'
+      execute :sudo, 'apt-get -y install systemd-sysv'
       execute :sudo, %(sed -i -e 's/^#PS1=/PS1=/' /root/.bashrc) # enable the colorful root bash prompt
       info 'Essentials installed'
     end
@@ -60,7 +66,7 @@ namespace :provision do
   desc 'Install Mobile Shell for keeping ssh session alive'
   task :mosh do
     on roles(:all), in: :groups, limit: 3, wait: 10 do
-      execute :sudo, ' apt-get install -y python-software-properties'
+      execute :sudo, ' apt-get install -y software-properties-common'
       execute :sudo, ' add-apt-repository -y ppa:keithw/mosh'
       execute :sudo, ' apt-get update'
       execute :sudo, ' apt-get -y install mosh'
@@ -79,7 +85,7 @@ namespace :provision do
   desc 'Install the latest stable release of nginx'
   task :nginx do
   	on roles(:web) do
-  		execute :sudo, 'apt-get -y install python-software-properties'
+  		execute :sudo, 'apt-get -y install software-properties-common'
       execute :sudo, 'add-apt-repository -y ppa:nginx/stable' # get latest nginx
       execute :sudo, 'apt-get -y update' # update apt to nginx
       execute :sudo,  'apt-get -y install nginx nginx-extras'
@@ -129,7 +135,7 @@ namespace :provision do
   desc 'Install the latest release of Redis on the server'
   task :redis do
     on roles (:app) do
-      execute :sudo, 'apt-get install -y python-software-properties'
+      execute :sudo, 'apt-get install -y software-properties-common'
       execute :sudo, 'add-apt-repository -y ppa:chris-lea/redis-server'
       execute :sudo, 'apt-get -y update'
       execute :sudo, 'apt-get -y install redis-server'
@@ -226,7 +232,7 @@ namespace :provision do
       # TODO: Send sms after environment setup is complete. Bring me back from my coffee
       publickey = capture(%(cat ~/.ssh/id_rsa.pub))
       run_locally do
-        execute "echo '\#{publickey}' | pbcopy"
+        execute "echo '\#{publickey}'"
       end
       repo = deploy_link
       info '#####################################################################'
