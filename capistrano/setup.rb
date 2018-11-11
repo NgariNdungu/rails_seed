@@ -38,7 +38,7 @@ namespace :setup do
   task :postgresql do
   	on roles(:db) do
       as 'postgres' do
-        if !test 'psql -d postgres -c "\du" | grep deploy'
+        if !test 'psql -d postgres -c "\\du" | grep deploy'
           invoke 'postgresql:create_database'
         else
           info "Databases already created."
