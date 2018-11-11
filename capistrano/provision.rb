@@ -42,7 +42,7 @@ namespace :provision do
   task :update_system do
     on roles(:all), in: :groups, limit: 3, wait: 10 do
       execute :sudo, 'apt-get -y update'
-      execute :sudo, 'apt-get -y install software-properties-common build-essential zlib1g zlib1g-dev libssl-dev libreadline7 libreadline-dev openssh-server libyaml-dev libcurl4-openssl-dev libxslt-dev libxml2-dev openssl curl autoconf libc6-dev ncurses-dev automake libtool bison'
+      execute :sudo, 'apt-get -y install software-properties-common build-essential zlib1g-dev libssl-dev libreadline-dev openssh-server libyaml-dev libcurl4-openssl-dev libxslt-dev libxml2-dev openssl curl autoconf ncurses-dev automake libtool bison'
       if test("[ -e ~/.ssh/id_rsa ]")
         info "SSH key exists. Skipping..."
       else
